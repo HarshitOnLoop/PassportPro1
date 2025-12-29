@@ -10,7 +10,7 @@ export const createImage = (url) =>
     image.src = url;
   });
 
-// NEW: Resize helper to speed up AI
+// 2. Helper to resize image (speed optimization)
 export async function resizeImage(imageUrl, maxWidth = 1024) {
   const image = await createImage(imageUrl);
   const canvas = document.createElement('canvas');
@@ -36,14 +36,12 @@ export async function resizeImage(imageUrl, maxWidth = 1024) {
   });
 }
 
+// 3. Math Helper for Rotation
 function getRadianAngle(degreeValue) {
   return (degreeValue * Math.PI) / 180;
 }
 
-// ... (Keep rotateSize, getCroppedImg, and generatePrintSheet exactly as they were in the previous code) ...
-// Copy the rest of the file from the previous answer.
-// Ensure generatePrintSheet and getCroppedImg are still there!
-
+// 4. Calculate bounding box after rotation
 function rotateSize(width, height, rotation) {
   const rotRad = getRadianAngle(rotation);
   return {
@@ -54,6 +52,7 @@ function rotateSize(width, height, rotation) {
   };
 }
 
+// 5. Crop the image based on user selection
 export async function getCroppedImg(imageSrc, pixelCrop, rotation = 0, backgroundColor = null) {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
@@ -90,21 +89,27 @@ export async function getCroppedImg(imageSrc, pixelCrop, rotation = 0, backgroun
   return canvas.toDataURL('image/jpeg', 1.0);
 }
 
+// 6. Generate the Print Sheet (Matches your Screenshot)
 export async function generatePrintSheet(photoUrl, sheetSize) {
   const originalPhoto = await createImage(photoUrl);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  
+
   const DPI = 300;
+  // Standard Passport Size Dimensions
   const photoW = 1.38 * DPI; 
   const photoH = 1.78 * DPI; 
 
   let layout = {};
 
   if (sheetSize === 'A4') {
-     layout = { width: 8.27 * DPI, height: 11.69 * DPI, cols: 5, rows: 6 };
+    // A4 Portrait: 5 columns, 6 rows (Upright photos)
+    layout = { width: 8.27 * DPI, height: 11.69 * DPI, cols: 5, rows: 6, rotate: false };
   } else {
-     layout = { width: 6 * DPI, height: 4 * DPI, cols: 4, rows: 2 };
+    // 4x6 Portrait with ROTATED photos (Like your screenshot)
+    // Width: 4 inches, Height: 6 inches
+    // Fits 2 columns, 4 rows (Total 8 photos)
+    layout = { width: 4 * DPI, height: 6 * DPI, cols: 2, rows: 4, rotate: true };
   }
 
   canvas.width = layout.width;
@@ -113,22 +118,48 @@ export async function generatePrintSheet(photoUrl, sheetSize) {
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const totalGridWidth = (layout.cols * photoW);
-  const totalGridHeight = (layout.rows * photoH);
+  // If rotating, the "slot" size on the paper is swapped
+  const slotW = layout.rotate ? photoH : photoW;
+  const slotH = layout.rotate ? photoW : photoH;
+
+  const totalGridWidth = (layout.cols * slotW);
+  const totalGridHeight = (layout.rows * slotH);
 
   const spaceX = (layout.width - totalGridWidth) / (layout.cols + 1);
   const spaceY = (layout.height - totalGridHeight) / (layout.rows + 1);
 
   for (let r = 0; r < layout.rows; r++) {
     for (let c = 0; c < layout.cols; c++) {
-      const x = spaceX + (c * (photoW + spaceX));
-      const y = spaceY + (r * (photoH + spaceY));
+      const x = spaceX + (c * (slotW + spaceX));
+      const y = spaceY + (r * (slotH + spaceY));
 
-      ctx.strokeStyle = '#cccccc';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, photoW, photoH);
+      if (layout.rotate) {
+        // ROTATION LOGIC (For 4x6 8-up layout)
+        const centerX = x + slotW / 2;
+        const centerY = y + slotH / 2;
 
-      ctx.drawImage(originalPhoto, x, y, photoW, photoH);
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        // Rotate -90 degrees (heads pointing left) to match screenshot
+        ctx.rotate(-Math.PI / 2); 
+        
+        // Draw photo centered in the rotated context
+        ctx.drawImage(originalPhoto, -photoW / 2, -photoH / 2, photoW, photoH);
+        
+        // Draw cut lines
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-photoW / 2, -photoH / 2, photoW, photoH);
+        
+        ctx.restore();
+      } else {
+        // STANDARD LOGIC (For A4)
+        ctx.drawImage(originalPhoto, x, y, photoW, photoH);
+        
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, photoW, photoH);
+      }
     }
   }
 
