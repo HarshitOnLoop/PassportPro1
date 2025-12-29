@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { removeBackground, preload } from '@imgly/background-removal';
-import { getCroppedImg, generatePrintSheet, resizeImage } from './canvasUtils';
+import { getCroppedImg, generatePrintSheet } from './canvasUtils';
 import { saveAs } from 'file-saver';
 import { 
-  Printer, Image as ImageIcon, Download, Sparkles, 
-  RotateCw, Plus, Trash2, Users, Minus, CheckCircle, UserPlus 
+  Printer, Image as ImageIcon, Download, 
+  Plus, Trash2, Users, Minus, CheckCircle, UserPlus 
 } from 'lucide-react';
 import './App.css';
 
@@ -17,6 +18,7 @@ const TEMPLATES = {
 const App = () => {
   const [step, setStep] = useState('upload'); // upload | crop | print
   const [imageSrc, setImageSrc] = useState(null);
+  const [isDragging, setIsDragging] = useState(false); // Visual state for drag
   
   // List of people added
   const [printQueue, setPrintQueue] = useState([]);
@@ -40,21 +42,52 @@ const App = () => {
   }, []);
 
   // --- LIVE PREVIEW EFFECT ---
-  // When quantity changes AND we are on the print screen, update immediately
   useEffect(() => {
     if (step === 'print' && printQueue.length > 0) {
       handleGenerateSheet(printLayout, printQueue);
     }
-  }, [printQueue, step, printLayout]); // Re-run if Queue or Layout changes
+  }, [printQueue, step, printLayout]);
 
+  // --- UPLOAD HANDLERS ---
+  
+  // 1. Standard File Input
   const handleUpload = (e) => {
     if (e.target.files?.length > 0) {
-      const url = URL.createObjectURL(e.target.files[0]);
+      processFile(e.target.files[0]);
+    }
+  };
+
+  // 2. Drag & Drop Handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Common logic to process the file
+  const processFile = (file) => {
+    if (file && file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
       setImageSrc(url);
       setStep('crop');
       setRotation(0);
       setZoom(1);
       setBgColor('#ffffff');
+    } else {
+      alert("Please upload an image file.");
     }
   };
 
@@ -88,13 +121,11 @@ const App = () => {
 
   const removeItem = (id) => {
     setPrintQueue(prev => prev.filter(i => i.id !== id));
-    // If queue becomes empty, go back to upload
     if (printQueue.length <= 1) {
         setStep('upload');
     }
   };
 
-  // We pass 'currentQueue' explicitly to avoid stale state issues during live updates
   const handleGenerateSheet = async (layoutOverride = null, currentQueue = printQueue) => {
     const layout = layoutOverride || printLayout;
     if (currentQueue.length === 0) return;
@@ -174,12 +205,17 @@ const App = () => {
         {/* UPLOAD SCREEN */}
         {step === 'upload' && (
           <div className="center-panel fade-in">
-            <div className="upload-card">
+            <div 
+              className={`upload-card ${isDragging ? 'drag-active' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <div className="icon-zone">
                 <ImageIcon size={48} />
               </div>
               <h1>Add Person</h1>
-              <p>Upload a photo to crop and add to the sheet.</p>
+              <p>Drag & Drop or Click to upload</p>
               
               <label className="big-upload-btn">
                 <Plus size={24} /> Upload Photo
