@@ -1,7 +1,9 @@
-// src/canvasUtils.js
+/**
+ * canvasUtils.js
+ */
 
-// 1. Helper to load image
-export const createImage = (url) =>
+// Helper: Load an image safely ensuring it is fully ready
+const createImage = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image();
     image.addEventListener('load', () => resolve(image));
@@ -10,162 +12,146 @@ export const createImage = (url) =>
     image.src = url;
   });
 
-// 2. Helper to resize image (speed optimization)
-export async function resizeImage(imageUrl, maxWidth = 1024) {
-  const image = await createImage(imageUrl);
+/**
+ * 1. GET CROPPED IMG
+ * Takes the source image and crop data, returns a Base64 JPEG.
+ */
+export async function getCroppedImg(imageSrc, pixelCrop, rotation = 0, bgColor = '#ffffff') {
+  const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  let width = image.width;
-  let height = image.height;
+  const maxSize = Math.max(image.width, image.height);
+  const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
 
-  // Scale down if too big
-  if (width > maxWidth) {
-    height = Math.round((height * maxWidth) / width);
-    width = maxWidth;
+  // set each dimensions to double largest dimension to allow for a safe area for the
+  // image to rotate in without being clipped by canvas context
+  canvas.width = safeArea;
+  canvas.height = safeArea;
+
+  // Fill background
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Translate & Rotate
+  ctx.translate(safeArea / 2, safeArea / 2);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.translate(-safeArea / 2, -safeArea / 2);
+
+  // Draw original image
+  ctx.drawImage(
+    image,
+    safeArea / 2 - image.width * 0.5,
+    safeArea / 2 - image.height * 0.5
+  );
+
+  // Extract the cropped data
+  const data = ctx.getImageData(
+    safeArea / 2 - image.width * 0.5 + pixelCrop.x,
+    safeArea / 2 - image.height * 0.5 + pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  // Resize canvas to final crop size
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  // Paste data
+  ctx.putImageData(data, 0, 0);
+
+  // Return Base64
+  return canvas.toDataURL('image/jpeg');
+}
+
+/**
+ * 2. GENERATE PRINT SHEET
+ * - Maintains order (Sequence)
+ * - Centers grid on 4x6 (Equal Margins)
+ * - Fits 30 photos on A4
+ */
+export const generatePrintSheet = async (imageUrls, layoutType) => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- CONFIGURATION ---
+  let canvasWidth, canvasHeight, photoWidth, photoHeight, gap, cols, maxRows;
+
+  if (layoutType === '6x4') {
+    // 4x6 inch (Landscape: 1800 x 1200 px @ 300 DPI)
+    canvasWidth = 1800;
+    canvasHeight = 1200;
+    cols = 4;           // Fits 4 across
+    maxRows = 2;        // Fits 2 down (Total 8)
+    photoWidth = 413;   // ~35mm
+    photoHeight = 531;  // ~45mm
+    gap = 30;           // Comfortable gap
+  } else {
+    // A4 (Portrait: 2480 x 3508 px @ 300 DPI)
+    canvasWidth = 2480;
+    canvasHeight = 3508;
+    cols = 5;           // Fits 5 across
+    maxRows = 6;        // Fits 6 down (Total 30)
+    photoWidth = 413;
+    photoHeight = 531;
+    gap = 25;           // Tighter gap to ensure 6 rows fit
   }
 
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(image, 0, 0, width, height);
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
 
+  // Fill White Background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  // --- CENTERING MATH ---
+  
+  // 1. Calculate the full width/height of the grid of photos
+  const totalGridWidth = (cols * photoWidth) + ((cols - 1) * gap);
+  
+  // For height, we calculate based on the specific layout max rows
+  const totalGridHeight = (maxRows * photoHeight) + ((maxRows - 1) * gap);
+
+  // 2. Calculate Starting X (Left Margin) to center horizontally
+  const startX = (canvasWidth - totalGridWidth) / 2;
+
+  // 3. Calculate Starting Y (Top Margin) to center vertically
+  const startY = (canvasHeight - totalGridHeight) / 2;
+
+  try {
+    // Load ALL images first to guarantee sequence order [0, 1, 2, 3...]
+    const loadedImages = await Promise.all(imageUrls.map(url => createImage(url)));
+
+    // Draw them
+    loadedImages.forEach((img, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+
+      const x = startX + (col * (photoWidth + gap));
+      const y = startY + (row * (photoHeight + gap));
+
+      // Draw only if within canvas bounds
+      if (y + photoHeight < canvasHeight) {
+        ctx.drawImage(img, x, y, photoWidth, photoHeight);
+        
+        // Optional: Draw cut lines (light grey border)
+        // ctx.strokeStyle = '#dddddd';
+        // ctx.lineWidth = 1;
+        // ctx.strokeRect(x, y, photoWidth, photoHeight);
+      }
+    });
+
+  } catch (e) {
+    console.error("Error generating sheet:", e);
+  }
+
+  // Return blob for preview
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
       resolve(URL.createObjectURL(blob));
     }, 'image/jpeg', 0.9);
   });
-}
+};
 
-// 3. Math Helper for Rotation
-function getRadianAngle(degreeValue) {
-  return (degreeValue * Math.PI) / 180;
-}
-
-// 4. Calculate bounding box after rotation
-function rotateSize(width, height, rotation) {
-  const rotRad = getRadianAngle(rotation);
-  return {
-    width:
-      Math.abs(Math.cos(rotRad) * width) + Math.abs(Math.sin(rotRad) * height),
-    height:
-      Math.abs(Math.sin(rotRad) * width) + Math.abs(Math.cos(rotRad) * height),
-  };
-}
-
-// 5. Crop the image based on user selection
-export async function getCroppedImg(imageSrc, pixelCrop, rotation = 0, backgroundColor = null) {
-  const image = await createImage(imageSrc);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  const { width: bBoxWidth, height: bBoxHeight } = rotateSize(image.width, image.height, rotation);
-
-  canvas.width = bBoxWidth;
-  canvas.height = bBoxHeight;
-
-  ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
-  ctx.rotate(getRadianAngle(rotation));
-  ctx.translate(-image.width / 2, -image.height / 2);
-  ctx.drawImage(image, 0, 0);
-
-  const data = ctx.getImageData(pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height);
-
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
-
-  if (backgroundColor) {
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = pixelCrop.width;
-  tempCanvas.height = pixelCrop.height;
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCtx.putImageData(data, 0, 0);
-
-  ctx.drawImage(tempCanvas, 0, 0);
-
-  return canvas.toDataURL('image/jpeg', 1.0);
-}
-
-// 6. Generate the Print Sheet (Matches your Screenshot)
-export async function generatePrintSheet(photoUrl, sheetSize) {
-  const originalPhoto = await createImage(photoUrl);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  const DPI = 300;
-  // Standard Passport Size Dimensions
-  const photoW = 1.38 * DPI; 
-  const photoH = 1.78 * DPI; 
-
-  let layout = {};
-
-  if (sheetSize === 'A4') {
-    // A4 Portrait: 5 columns, 6 rows (Upright photos)
-    layout = { width: 8.27 * DPI, height: 11.69 * DPI, cols: 5, rows: 6, rotate: false };
-  } else {
-    // 4x6 Portrait with ROTATED photos (Like your screenshot)
-    // Width: 4 inches, Height: 6 inches
-    // Fits 2 columns, 4 rows (Total 8 photos)
-    layout = { width: 4 * DPI, height: 6 * DPI, cols: 2, rows: 4, rotate: true };
-  }
-
-  canvas.width = layout.width;
-  canvas.height = layout.height;
-
-  ctx.fillStyle = 'white';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // If rotating, the "slot" size on the paper is swapped
-  const slotW = layout.rotate ? photoH : photoW;
-  const slotH = layout.rotate ? photoW : photoH;
-
-  const totalGridWidth = (layout.cols * slotW);
-  const totalGridHeight = (layout.rows * slotH);
-
-  const spaceX = (layout.width - totalGridWidth) / (layout.cols + 1);
-  const spaceY = (layout.height - totalGridHeight) / (layout.rows + 1);
-
-  for (let r = 0; r < layout.rows; r++) {
-    for (let c = 0; c < layout.cols; c++) {
-      const x = spaceX + (c * (slotW + spaceX));
-      const y = spaceY + (r * (slotH + spaceY));
-
-      if (layout.rotate) {
-        // ROTATION LOGIC (For 4x6 8-up layout)
-        const centerX = x + slotW / 2;
-        const centerY = y + slotH / 2;
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        // Rotate -90 degrees (heads pointing left) to match screenshot
-        ctx.rotate(-Math.PI / 2); 
-        
-        // Draw photo centered in the rotated context
-        ctx.drawImage(originalPhoto, -photoW / 2, -photoH / 2, photoW, photoH);
-        
-        // Draw cut lines
-        ctx.strokeStyle = '#cccccc';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(-photoW / 2, -photoH / 2, photoW, photoH);
-        
-        ctx.restore();
-      } else {
-        // STANDARD LOGIC (For A4)
-        ctx.drawImage(originalPhoto, x, y, photoW, photoH);
-        
-        ctx.strokeStyle = '#cccccc';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, photoW, photoH);
-      }
-    }
-  }
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      resolve(URL.createObjectURL(blob));
-    }, 'image/jpeg', 1.0);
-  });
-}
+// Placeholder
+export const resizeImage = (file) => file;
