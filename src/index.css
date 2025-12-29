@@ -1,0 +1,306 @@
+:root {
+  --primary: #2563eb;
+  --bg: #f3f4f6;
+  --sidebar-bg: #ffffff;
+  --text: #1f2937;
+  --border: #e5e7eb;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden; /* Prevents scrollbars on the whole page */
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+  width: 400px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+  z-index: 10;
+}
+
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sidebar-header h2 { margin: 0; font-size: 1.2rem; }
+.badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; }
+
+.queue-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* FIXED CARD STYLING */
+.queue-card {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  gap: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  position: relative; /* Context for absolute positioning if needed */
+}
+
+.card-image img {
+  width: 45px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #eee;
+  display: block;
+}
+
+.card-controls {
+  flex: 1; /* Pushes delete button to the right */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qty-wrapper {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 6px;
+  width: fit-content;
+  border: 1px solid #e5e7eb;
+}
+
+.qty-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #555;
+}
+.qty-btn:hover { background: #e5e7eb; color: var(--primary); }
+
+.qty-number {
+  font-weight: 700;
+  font-size: 14px;
+  min-width: 24px;
+  text-align: center;
+  color: #1f2937;
+}
+
+.copies-label {
+  font-size: 0.75rem;
+  color: #1f2937;
+}
+
+/* FIXED DELETE BUTTON */
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444; /* Red color */
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+}
+
+.sidebar-footer {
+  padding: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.btn-secondary {
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* --- MAIN CONTENT CENTERED --- */
+.main-content {
+  flex: 1;
+  position: relative;
+  background: #f8fafc;
+  display: flex;     /* Flex to center content */
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.center-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-card {
+  text-align: center;
+  background: white;
+  padding: 50px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+.big-upload-btn {
+  background: var(--primary);
+  color: white;
+  padding: 15px 30px;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-top: 25px;
+  transition: transform 0.1s;
+}
+.big-upload-btn:hover { transform: scale(1.02); }
+
+/* --- CROP WORKSPACE --- */
+.crop-panel {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.crop-workspace {
+  flex: 1;
+  position: relative;
+  background: #1f2937; /* Dark background for cropping */
+}
+
+.crop-controls {
+  width: 320px;
+  background: white;
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+/* --- PRINT PREVIEW FIXED --- */
+.print-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.print-header {
+  padding: 15px 25px;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Prevents image from going out of screen */
+.preview-container {
+  flex: 1;
+  background: #e5e7eb;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* Ensures no scroll bars on parent */
+}
+
+.sheet-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain; /* Keeps entire sheet visible */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  background: white;
+}
+
+.print-footer {
+  padding: 20px;
+  background: white;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+}
+
+.btn-download {
+  background: #10b981; /* Green */
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Animations */
+.fade-in { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Controls Styling */
+.control-row { display: flex; flex-direction: column; gap: 8px; }
+select, input[type="range"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+.swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; }
+.color-row { display: flex; gap: 10px; }
+.btn-magic { background: linear-gradient(90deg, #6366f1, #8b5cf6); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+.action-row { margin-top: auto; display: flex; gap: 10px; }
+.btn-text { background: transparent; border: none; color: #6b7280; cursor: pointer; }
