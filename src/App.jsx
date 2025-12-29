@@ -3,7 +3,7 @@ import Cropper from 'react-easy-crop';
 import { removeBackground, preload } from '@imgly/background-removal';
 import { getCroppedImg, generatePrintSheet, resizeImage } from './canvasUtils';
 import { saveAs } from 'file-saver';
-import { Scissors, Printer, Image as ImageIcon, Download, Sparkles, RotateCw, ArrowLeft } from 'lucide-react';
+import { Scissors, Printer, Image as ImageIcon, Download, Sparkles, RotateCw, ArrowLeft, Palette } from 'lucide-react';
 import './App.css';
 
 const TEMPLATES = {
@@ -30,11 +30,10 @@ const App = () => {
   const [printLayout, setPrintLayout] = useState('6x4'); 
   const [printPreview, setPrintPreview] = useState(null);
 
-  // 1. FAST START: Preload the AI model as soon as the app opens
+  // 1. FAST START: Preload the AI model
   useEffect(() => {
     const loadModel = async () => {
       try {
-        // This downloads the 100MB model in the background immediately
         await preload(); 
         console.log("AI Model Preloaded");
         setModelReady(true);
@@ -58,11 +57,7 @@ const App = () => {
     if (!imageSrc) return;
     setIsRemovingBg(true);
     try {
-      // Step A: Downscale image to 800px width (Speed optimization)
-      // This makes the AI process 10-20x faster than full 12MP photos
       const smallImageUrl = await resizeImage(imageSrc, 800);
-
-      // Step B: Run AI on small image
       const blob = await removeBackground(smallImageUrl);
       const url = URL.createObjectURL(blob);
       setImageSrc(url);
@@ -183,12 +178,51 @@ const App = () => {
                   </div>
                </div>
 
+               {/* UPDATED: Background Color Section with Custom Picker */}
                <div className="control-group">
                  <label>Background Color</label>
                  <div className="colors">
-                   {['#ffffff', '#D9EAF7', '#B0D5F1', '#f0f0f0', '#d63031'].map(c => (
-                     <div key={c} className="swatch" style={{background: c}} onClick={() => setBgColor(c)}/>
+                   {/* Preset Colors */}
+                   {['#ffffff', '#D9EAF7', '#B0D5F1', '#f0f0f0', '#d63031', '#4b7 bec'].map(c => (
+                     <div 
+                        key={c} 
+                        className="swatch" 
+                        style={{
+                            background: c, 
+                            border: bgColor === c ? '2px solid #333' : '1px solid #ddd',
+                            transform: bgColor === c ? 'scale(1.1)' : 'scale(1)'
+                        }} 
+                        onClick={() => setBgColor(c)}
+                        title={c}
+                     />
                    ))}
+                   
+                   {/* New: Custom Color Input */}
+                   <div 
+                     className="swatch" 
+                     style={{
+                        background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
+                        position: 'relative',
+                        border: '1px solid #ddd',
+                        cursor: 'pointer'
+                     }}
+                     title="Custom Color"
+                   >
+                     <input 
+                       type="color" 
+                       value={bgColor} 
+                       onChange={(e) => setBgColor(e.target.value)} 
+                       style={{
+                         opacity: 0, 
+                         position: 'absolute', 
+                         top: 0, 
+                         left: 0, 
+                         width: '100%', 
+                         height: '100%',
+                         cursor: 'pointer'
+                       }} 
+                     />
+                   </div>
                  </div>
                </div>
                
@@ -219,7 +253,7 @@ const App = () => {
                     generateSheet(processedImage, newLayout);
                   }}
                 >
-                  <option value="6x4">6x4 inch (Landscape - 8 Photos)</option>
+                  <option value="6x4">4x6 inch (Landscape - 8 Photos)</option>
                   <option value="A4">A4 (Portrait - 30 Photos)</option>
                 </select>
               </div>
